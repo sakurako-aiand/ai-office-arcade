@@ -1,54 +1,63 @@
 /**
- * HardGameScene — HARD difficulty placeholder.
+ * HardGameScene — HARD difficulty mini-game: "Bit-Battle: Project Launch".
  *
- * TODO(gameplay): implement a demanding mini-game (e.g. pattern memory under a
- * shrinking time budget, or a fast precision aim challenge).
+ * A fast-paced, retro 8-bit turn-based battle. Pick 3 heroes (Engineer /
+ * Designer / Manager), then clear 3 sequential levels (Bug Swarm -> Server
+ * Firewall -> Boss Meeting). Combat uses a streamlined Attack/Defend/Skill
+ * menu with instant resolution and a SPACE-held ACCELERATE to fast-forward.
+ *
+ * The strict three-minute timer, coin reward, and auto-kick back to the hub
+ * are all owned by MiniGameLoader — this scene just builds the controller and
+ * forwards its 'win' / 'lose' events into the loader pipeline (hard = +50
+ * coins on win; 0 on lose/timeout).
+ *
+ * Win:  clear Level 3 (boss) -> controller emits 'win' -> this.win()  -> +50 coins + auto-kick.
+ * Lose: party wiped          -> controller emits 'lose' -> this.lose() -> 0 coins + auto-kick.
+ * Timeout: 3-min loader timer expires -> 0 coins + auto-kick (handled by loader).
+ *
+ * The controller + view are fully self-contained (party select, combat loop,
+ * enemy AI, retro UI, cleanup); see src/games/bitBattle/.
  */
-import { SCENE_KEYS, COLORS } from '../config/constants';
+import { SCENE_KEYS } from '../config/constants';
 import { MiniGameLoader } from './MiniGameLoader';
+import { BitBattleController } from '../games/bitBattle/BitBattleController';
+import { logger } from '../utils/logger';
 
 export class HardGameScene extends MiniGameLoader {
+  private controller: BitBattleController | null = null;
+
   constructor() {
     super(SCENE_KEYS.HardGame);
   }
 
   protected buildGame(): void {
-    const { width, height } = this.scale;
-
+    // Subtitle under the shared "HARD MINI-GAME" header.
     this.add
-      .text(width / 2, height / 2 - 70, 'HARD • Memory Sprint', {
+      .text(this.scale.width / 2, 134, 'BIT-BATTLE: PROJECT LAUNCH', {
         fontFamily: 'Press Start 2P, monospace',
-        fontSize: '16px',
+        fontSize: '12px',
         color: '#ef4444',
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(5);
 
-    this.add
-      .text(width / 2, height / 2 - 30, 'TODO: show a pattern, then verify the player repeats it.', {
-        fontFamily: 'Inter, sans-serif',
-        fontSize: '13px',
-        color: '#7b8794',
-      })
-      .setOrigin(0.5);
-
-    this.addDevControls(width / 2, height / 2 + 40);
+    // Mount the battle controller and wire its win/lose events into the loader.
+    this.controller = new BitBattleController(this);
+    this.controller.on('win', () => this.win());
+    this.controller.on('lose', () => this.lose());
   }
 
-  private addDevControls(x: number, y: number): void {
-    const make = (label: string, dx: number, tint: number, onClick: () => void) => {
-      const b = this.add.rectangle(x + dx, y, 150, 46, tint).setStrokeStyle(2, 0xffffff, 0.5);
-      b.setInteractive({ useHandCursor: true });
-      this.add
-        .text(x + dx, y, label, {
-          fontFamily: 'Inter, sans-serif',
-          fontSize: '16px',
-          color: '#ffffff',
-          fontStyle: '800',
-        })
-        .setOrigin(0.5);
-      b.on('pointerup', onClick);
-    };
-    make('WIN (test)', -90, COLORS.easy, () => this.win());
-    make('LOSE (test)', 90, COLORS.hard, () => this.lose());
+  /** The controller draws its own field, so skip the generic placeholder. */
+  protected drawPlaceholderField(): void {
+    // no-op
+  }
+
+  shutdown(): void {
+    // Tear down the controller explicitly (unsubscribes keyboard + input,
+    // destroys the view + all GameObjects) for leak-free scene swaps.
+    this.controller?.destroy();
+    this.controller = null;
+    super.shutdown();
+    logger.debug('HardGameScene shutdown.');
   }
 }
