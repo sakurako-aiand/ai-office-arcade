@@ -74,8 +74,12 @@ export abstract class MiniGameLoader extends Phaser.Scene {
   /** Subclasses implement the actual gameplay here. */
   protected abstract buildGame(): void;
 
-  /** Draw a bordered playfield so placeholders look intentional. */
-  private drawPlaceholderField(w: number, h: number): void {
+  /**
+   * Draw a bordered playfield so placeholders look intentional.
+   * Protected so a concrete game with its own field (e.g. EasyGameScene) can
+   * override it with a no-op and render its own board instead.
+   */
+  protected drawPlaceholderField(w: number, h: number): void {
     const pad = 40;
     const top = 150;
     const field = this.add
